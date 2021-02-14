@@ -3,6 +3,9 @@ name = "rargsxd"
 version = "0.1.0"
 authors = ["BubbyRoosh"]
 edition = "2018"
+license-file = "LICENSE"
+description = "Small and simple argument parsing crate."
+repository = "https://github.com/BubbyRoosh1/rargsxd"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
