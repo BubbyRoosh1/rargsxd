@@ -1,37 +1,35 @@
-//! Example:
+//! # Example
 //!
 //! ```rust
 //! use rargsxd::*;
 //!
-//! fn main() {
-//!     let mut args = ArgParser::new("program_lol");
-//!     args.author("BubbyRoosh")
-//!         .version("0.1.0")
-//!         .copyright("Copyright (C) 2021 BubbyRoosh")
-//!         .info("Example for simple arg parsing crate OwO")
-//!         .require_args(true) // Makes the program print help and exit if there are no arguments passed
-//!         .args(
-//!             vec!(
-//!                 Arg::new("test")
-//!                     .short("t")
-//!                     .help("This is a test flag")
-//!                     .flag(false),
-//!                 Arg::new("monke")
-//!                     .short("m")
-//!                     .help("This is a test option")
-//!                     .option("oo"),
-//!             )
-//!         )
-//!         .parse();
+//!let mut args = ArgParser::new("program_lol");
+//!args.author("BubbyRoosh")
+//!    .version("0.1.0")
+//!    .copyright("Copyright (C) 2021 BubbyRoosh")
+//!    .info("Example for simple arg parsing crate OwO")
+//!    .require_args(true) // Requires args to be passed, otherwise prints help and exits
+//!    .args(
+//!        vec!(
+//!            Arg::new("test")
+//!                .short("t")
+//!                .help("This is a test flag")
+//!                .flag(false),
+//!            Arg::new("monke")
+//!                .short("m")
+//!                .help("This is a test option")
+//!                .option("oo"),
+//!        )
+//!    )
+//!    .parse();
 //!
-//!     // If "-t" or "--test" is passed, this will run
-//!     if args.get_flag("test").unwrap() {
-//!         println!("Hello, world!");
-//!     }
+//!// If "-t" or "--test" is passed, this will run
+//!if args.get_flag("test").unwrap() {
+//!    println!("Hello, world!");
+//!}
 //!
-//!     // This will be "oo" unless "--monke" or "-m" is passed with a string argument
-//!     println!("{}", args.get_option("monke").unwrap());
-//! }
+//!// This will be "oo" unless "--monke" or "-m" is passed with a string argument
+//!println!("{}", args.get_option("monke").unwrap());
 //! ```
 
 // Copyright (C) 2021 BubbyRoosh
@@ -120,10 +118,15 @@ impl ArgParser {
         }
 
         for (idx, arg) in args.iter().enumerate() {
-            if arg.starts_with("--") {
+            if let Some(arg) = arg.strip_prefix("--") {
                 let arg = String::from(&arg[2..]);
-                if arg == "help" {self.print_help();process::exit(0);}
-                else if arg == "version" {println!("{} {}", self.name, self.version);process::exit(0);}
+                if arg == "help" {
+                    self.print_help();
+                    process::exit(0);
+                } else if arg == "version" {
+                    println!("{} {}", self.name, self.version);
+                    process::exit(0);
+                }
                 for flag in self.flags.iter_mut() {
                     if flag.name == arg {
                         // In theory this will always be a Flag because of the args() method
@@ -134,16 +137,15 @@ impl ArgParser {
                 }
                 for option in self.options.iter_mut() {
                     if option.name == arg {
-                        let next = args.iter().nth(idx + 1);
-                        match next {
-                            Some(next) => if !next.starts_with("-") {
+                        let next = args.get(idx + 1);
+                        if let Some(next) = next {
+                            if !next.starts_with('-') {
                                 option.option(&next);
-                            },
-                            None => {},
+                            }
                         }
                     }
                 }
-            } else if arg.starts_with("-") {
+            } else if let Some(arg) = arg.strip_prefix('-') {
                 let arg = String::from(&arg[1..]);
                 if arg == "h" {self.print_help();process::exit(1);}
                 else if arg == "v" {println!("{} {}", self.name, self.version);process::exit(0);}
@@ -157,12 +159,11 @@ impl ArgParser {
                 }
                 for option in self.options.iter_mut() {
                     if option.short == arg {
-                        let next = args.iter().nth(idx + 1);
-                        match next {
-                            Some(next) => if !next.starts_with("-") {
+                        let next = args.get(idx + 1);
+                        if let Some(next) = next {
+                            if !next.starts_with('-') {
                                 option.option(&next);
-                            },
-                            None => {},
+                            }
                         }
                     }
                 }
@@ -224,14 +225,14 @@ impl ArgParser {
         println!("{} {}\n{}\n{}\n{}", self.name, self.version, self.author, self.info, self.copyright);
         println!("\nUsage:\n\t{}", self.usage);
 
-        if self.flags.len() > 0 {
+        if !self.flags.is_empty() {
             println!("\nFlags:");
             self.flags.iter().for_each(|flag| {
                 println!("\t-{}, --{}\t{}", flag.short, flag.name, flag.help);
             });
         }
 
-        if self.options.len() > 0 {
+        if !self.options.is_empty() {
             println!("\nOptions:");
             self.options.iter().for_each(|opt| {
                 println!("\t-{}, --{}\t{}", opt.short, opt.name, opt.help);
