@@ -119,7 +119,6 @@ impl ArgParser {
 
         for (idx, arg) in args.iter().enumerate() {
             if let Some(arg) = arg.strip_prefix("--") {
-                let arg = String::from(&arg[2..]);
                 if arg == "help" {
                     self.print_help();
                     process::exit(0);
@@ -146,7 +145,6 @@ impl ArgParser {
                     }
                 }
             } else if let Some(arg) = arg.strip_prefix('-') {
-                let arg = String::from(&arg[1..]);
                 if arg == "h" {self.print_help();process::exit(1);}
                 else if arg == "v" {println!("{} {}", self.name, self.version);process::exit(0);}
                 for flag in self.flags.iter_mut() {
