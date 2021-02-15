@@ -3,33 +3,33 @@
 //! ```rust
 //! use rargsxd::*;
 //!
-//!let mut args = ArgParser::new("program_lol");
-//!args.author("BubbyRoosh")
-//!    .version("0.1.0")
-//!    .copyright("Copyright (C) 2021 BubbyRoosh")
-//!    .info("Example for simple arg parsing crate OwO")
-//!    .require_args(true) // Requires args to be passed, otherwise prints help and exits
-//!    .args(
-//!        vec!(
-//!            Arg::new("test")
-//!                .short("t")
-//!                .help("This is a test flag")
-//!                .flag(false),
-//!            Arg::new("monke")
-//!                .short("m")
-//!                .help("This is a test option")
-//!                .option("oo"),
-//!        )
-//!    )
-//!    .parse();
+//! let mut args = ArgParser::new("program_lol");
+//! args.author("BubbyRoosh")
+//!     .version("0.1.0")
+//!     .copyright("Copyright (C) 2021 BubbyRoosh")
+//!     .info("Example for simple arg parsing crate OwO")
+//!     .require_args(true) // Requires args to be passed, otherwise prints help and exits
+//!     .args(
+//!         vec!(
+//!             Arg::new("test")
+//!                 .short("t")
+//!                 .help("This is a test flag")
+//!                 .flag(false),
+//!             Arg::new("monke")
+//!                 .short("m")
+//!                 .help("This is a test option")
+//!                 .option("oo"),
+//!         )
+//!     )
+//!     .parse();
 //!
-//!// If "-t" or "--test" is passed, this will run
-//!if args.get_flag("test").unwrap() {
-//!    println!("Hello, world!");
-//!}
+//! // If "-t" or "--test" is passed, this will run
+//! if args.get_flag("test").unwrap() {
+//!     println!("Hello, world!");
+//! }
 //!
-//!// This will be "oo" unless "--monke" or "-m" is passed with a string argument
-//!println!("{}", args.get_option("monke").unwrap());
+//! // This will be "oo" unless "--monke" or "-m" is passed with a string argument
+//! println!("{}", args.get_option("monke").unwrap());
 //! ```
 
 // Copyright (C) 2021 BubbyRoosh
@@ -119,13 +119,8 @@ impl ArgParser {
 
         for (idx, arg) in args.iter().enumerate() {
             if let Some(arg) = arg.strip_prefix("--") {
-                if arg == "help" {
-                    self.print_help();
-                    process::exit(0);
-                } else if arg == "version" {
-                    println!("{} {}", self.name, self.version);
-                    process::exit(0);
-                }
+                if arg == "help" {self.print_help();process::exit(0);}
+                else if arg == "version" {println!("{} {}", self.name, self.version);process::exit(0);}
                 for flag in self.flags.iter_mut() {
                     if flag.name == arg {
                         // In theory this will always be a Flag because of the args() method
@@ -260,6 +255,11 @@ impl ArgParser {
 
     pub fn info(&mut self, info: &str) -> &mut Self {
         self.info = String::from(info);
+        self
+    }
+
+    pub fn usage(&mut self, usage: &str) -> &mut Self {
+        self.usage = String::from(usage);
         self
     }
 
