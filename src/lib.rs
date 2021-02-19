@@ -3,7 +3,7 @@
 //! ```rust
 //! use rargsxd::*;
 //!
-//! let args = vec!("--testflag".to_string(), "-o".to_string(), "monke".to_string());
+//! let args = vec!("testword".to_string(), "--testflag".to_string(), "-o".to_string(), "monke".to_string());
 //! let mut parser = ArgParser::new("program_lol");
 //! parser.author("BubbyRoosh")
 //!     .version("0.1.0")
@@ -20,10 +20,14 @@
 //!                 .short('o')
 //!                 .help("This is a test option.")
 //!                 .option("option"),
+//!             Arg::new("testword")
+//!                 .help("This is a test option.")
+//!                 .word(WordType::Boolean(false)),
 //!         )
-//!     ).parse_vec(args); // .parse() uses std::env::args()
+//!     ).parse_vec(args); // .parse() uses std::env::args() so the args vec won't need to be passed.
 //!
 //! assert!(parser.get_flag("testflag").unwrap());
+//! assert!(parser.get_word("testword").unwrap().as_bool().unwrap());
 //! assert_eq!(parser.get_option("testoption").unwrap(), "monke");
 //! ```
 
@@ -31,19 +35,55 @@
 use std::{env, process};
 
 #[derive(Clone, PartialEq)]
+pub enum WordType {
+    Boolean(bool),
+    String_(String),
+}
+
+impl WordType {
+    pub fn boolean(b: bool) -> Self {
+        Self::Boolean(b)
+    }
+
+    pub fn string(s: &str) -> Self {
+        Self::String_(String::from(s))
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        if let Self::Boolean(b) = self {
+            return Some(*b);
+        }
+        None
+    }
+
+    pub fn as_string(&self) -> Option<String> {
+        if let Self::String_(s) = self {
+            return Some(s.clone());
+        }
+        None
+    }
+}
+
+#[derive(Clone, PartialEq)]
 pub enum ArgType {
     /// Only used for initialization. Will panic if there's any unknown ArgTypes when initializing.
     Unknown,
     Flag(bool),
     Option_(String),
+    Word(WordType),
 }
 
 impl ArgType {
-    pub fn new(string: Option<String>) -> Self {
-        match string {
-            Some(s) => Self::Option_(s),
-            None => Self::Flag(false),
-        }
+    pub fn option(opt: &str) -> Self {
+        Self::Option_(String::from(opt))
+    }
+
+    pub fn flag(f: bool) -> Self {
+        Self::Flag(f)
+    }
+
+    pub fn word(wt: WordType) -> Self {
+        Self::Word(wt)
     }
 }
 
@@ -56,23 +96,28 @@ pub struct Arg {
 }
 
 impl Arg {
-    pub fn new(name: &str) -> Self {
-        let name = String::from(name);
+    pub fn new(namee: &str) -> Self {
+        let name = String::from(namee);
         Self {
             name,
-            short: ' ',
+            short: namee.chars().nth(0).unwrap(),
             help: String::new(),
             typ: ArgType::Unknown,
         }
     }
 
     pub fn flag(&mut self, val: bool) -> &mut Self {
-        self.typ = ArgType::Flag(val);
+        self.typ = ArgType::flag(val);
         self
     }
 
     pub fn option(&mut self, val: &str) -> &mut Self {
-        self.typ = ArgType::Option_(String::from(val));
+        self.typ = ArgType::option(val);
+        self
+    }
+
+    pub fn word(&mut self, wt: WordType) -> &mut Self {
+        self.typ = ArgType::word(wt);
         self
     }
 
@@ -96,6 +141,7 @@ pub struct ArgParser {
     usage: String,
     flags: Vec<Arg>,
     options: Vec<Arg>,
+    words: Vec<Arg>,
     require_args: bool,
 }
 
@@ -113,6 +159,23 @@ impl ArgParser {
         }
 
         for (idx, arg) in args.iter().enumerate() {
+            for word in self.words.iter_mut() {
+                if word.name == *arg {
+                    if let ArgType::Word(w) = word.clone().typ {
+                        match w {
+                            WordType::Boolean(boolean) => {word.word(WordType::Boolean(!boolean));},
+                            WordType::String_(_) => {
+                                let next = args.get(idx + 1);
+                                if let Some(next) = next {
+                                    if !next.starts_with('-') {
+                                        word.word(WordType::String_(next.clone()));
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
             if let Some(arg) = arg.strip_prefix("--") {
                 if arg == "help" {self.print_help();process::exit(0);}
                 else if arg == "version" {println!("{} {}", self.name, self.version);process::exit(0);}
@@ -187,6 +250,18 @@ impl ArgParser {
         None
     }
 
+    pub fn get_word(&self, name: &str) -> Option<WordType> {
+        for word in self.words.clone() {
+            if word.name == name {
+                if let ArgType::Word(res) = word.typ {
+                    return Some(res);
+                }
+                break;
+            }
+        }
+        None
+    }
+
     pub fn new(name: &str) -> Self {
         let mut s = Self {
             name: String::from(name),
@@ -197,8 +272,10 @@ impl ArgParser {
             usage: format!("{} [flags] [options]", name),
             flags: Vec::new(),
             options: Vec::new(),
+            words: Vec::new(),
             require_args: false,
         };
+
         s.args(vec!(
             Arg::new("help")
                 .short('h')
@@ -267,6 +344,7 @@ impl ArgParser {
                 ArgType::Unknown => panic!("No Args can have type Unknown!"),
                 ArgType::Flag(_) => self.flags.push(arg.clone()),
                 ArgType::Option_(_) => self.options.push(arg.clone()),
+                ArgType::Word(_) => self.words.push(arg.clone()),
             }
 
         }
@@ -284,7 +362,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse() {
+    fn parse_dash() {
         let args = vec!("--testflag".to_string(),
             "-o".to_string(), "monke".to_string(),
             "-fa".to_string(), "option".to_string(),
@@ -324,5 +402,34 @@ mod tests {
 
         assert!(parser.get_flag("combinedtestflag").unwrap());
         assert_eq!(parser.get_option("combinedtestoption").unwrap(), "option");
+    }
+
+    #[test]
+    fn parse_word() {
+        let args = vec!(
+            "testword".to_string(),
+            "anothertestword".to_string(),
+            "wordargument".to_string(),
+        );
+
+        let mut parser = ArgParser::new("program_lol");
+        parser.author("BubbyRoosh")
+            .version("0.1.0")
+            .copyright("Copyright (C) 2021 BubbyRoosh")
+            .info("Example for simple arg parsing crate OwO")
+            .args(
+                vec!(
+                    Arg::new("testword")
+                        .help("This is a test word argument.")
+                        .word(WordType::Boolean(false)),
+
+                    Arg::new("anothertestword")
+                        .help("This is a *another* test word argument.")
+                        .word(WordType::string("")),
+                )
+            ).parse_vec(args);
+
+        assert!(parser.get_word("testword").unwrap().as_bool().unwrap());
+        assert_eq!(parser.get_word("anothertestword").unwrap().as_string().unwrap(), "wordargument");
     }
 }
