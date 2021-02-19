@@ -3,33 +3,28 @@
 //! ```rust
 //! use rargsxd::*;
 //!
-//! let mut args = ArgParser::new("program_lol");
-//! args.author("BubbyRoosh")
+//! let args = vec!("--testflag".to_string(), "-o".to_string(), "monke".to_string());
+//! let mut parser = ArgParser::new("program_lol");
+//! parser.author("BubbyRoosh")
 //!     .version("0.1.0")
 //!     .copyright("Copyright (C) 2021 BubbyRoosh")
 //!     .info("Example for simple arg parsing crate OwO")
-//!     .require_args(true) // Requires args to be passed, otherwise prints help and exits
+//!     .require_args(true)
 //!     .args(
 //!         vec!(
-//!             Arg::new("test")
+//!             Arg::new("testflag")
 //!                 .short('t')
-//!                 .help("This is a test flag")
+//!                 .help("This is a test flag.")
 //!                 .flag(false),
-//!             Arg::new("monke")
-//!                 .short('m')
-//!                 .help("This is a test option")
-//!                 .option("oo"),
+//!             Arg::new("testoption")
+//!                 .short('o')
+//!                 .help("This is a test option.")
+//!                 .option("option"),
 //!         )
-//!     )
-//!     .parse();
+//!     ).parse_vec(args); // .parse() uses std::env::args()
 //!
-//! // If "-t" or "--test" is passed, this will run
-//! if args.get_flag("test").unwrap() {
-//!     println!("Hello, world!");
-//! }
-//!
-//! // This will be "oo" unless "--monke" or "-m" is passed with a string argument
-//! println!("{}", args.get_option("monke").unwrap());
+//! assert!(parser.get_flag("testflag").unwrap());
+//! assert_eq!(parser.get_option("testoption").unwrap(), "monke");
 //! ```
 
 // Copyright (C) 2021 BubbyRoosh
@@ -107,11 +102,11 @@ pub struct ArgParser {
 impl ArgParser {
     pub fn parse(&mut self) -> &mut Self {
         let args: Vec<_> = env::args().collect();
-        self.parse_args(args);
+        self.parse_vec(args);
         self
     }
 
-    pub fn parse_args(&mut self, args: Vec<String>) -> &mut Self {
+    pub fn parse_vec(&mut self, args: Vec<String>) -> &mut Self {
         if args.len() == 1 && self.require_args {
             self.print_help();
             process::exit(1);
@@ -121,6 +116,7 @@ impl ArgParser {
             if let Some(arg) = arg.strip_prefix("--") {
                 if arg == "help" {self.print_help();process::exit(0);}
                 else if arg == "version" {println!("{} {}", self.name, self.version);process::exit(0);}
+
                 for flag in self.flags.iter_mut() {
                     if flag.name == arg {
                         if let ArgType::Flag(boolean) = flag.typ {
@@ -139,9 +135,11 @@ impl ArgParser {
                     }
                 }
             } else if let Some(arg) = arg.strip_prefix('-') {
-                if arg == "h" {self.print_help();process::exit(1);}
-                else if arg == "v" {println!("{} {}", self.name, self.version);process::exit(0);}
+
                 arg.chars().into_iter().for_each(|ch| {
+                    if ch == 'h' {self.print_help();process::exit(1);}
+                    else if ch == 'v' {println!("{} {}", self.name, self.version);process::exit(0);}
+
                     for flag in self.flags.iter_mut() {
                         if flag.short == ch {
                             if let ArgType::Flag(boolean) = flag.typ {
@@ -278,5 +276,53 @@ impl ArgParser {
     pub fn require_args(&mut self, require: bool) -> &mut Self {
         self.require_args = require;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse() {
+        let args = vec!("--testflag".to_string(),
+            "-o".to_string(), "monke".to_string(),
+            "-fa".to_string(), "option".to_string(),
+        );
+
+        let mut parser = ArgParser::new("program_lol");
+        parser.author("BubbyRoosh")
+            .version("0.1.0")
+            .copyright("Copyright (C) 2021 BubbyRoosh")
+            .info("Example for simple arg parsing crate OwO")
+            .args(
+                vec!(
+                    Arg::new("testflag")
+                        .short('t')
+                        .help("This is a test flag.")
+                        .flag(false),
+
+                    Arg::new("testoption")
+                        .short('o')
+                        .help("This is a test option.")
+                        .option("option"),
+
+                    Arg::new("combinedtestflag")
+                        .short('f')
+                        .help("This is another test flag.")
+                        .flag(false),
+
+                    Arg::new("combinedtestoption")
+                        .short('a')
+                        .help("This is another test option.")
+                        .option("monke"),
+                )
+            ).parse_vec(args);
+
+        assert!(parser.get_flag("testflag").unwrap());
+        assert_eq!(parser.get_option("testoption").unwrap(), "monke");
+
+        assert!(parser.get_flag("combinedtestflag").unwrap());
+        assert_eq!(parser.get_option("combinedtestoption").unwrap(), "option");
     }
 }
