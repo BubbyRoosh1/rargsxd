@@ -12,11 +12,11 @@
 //!     .args(
 //!         vec!(
 //!             Arg::new("test")
-//!                 .short("t")
+//!                 .short('t')
 //!                 .help("This is a test flag")
 //!                 .flag(false),
 //!             Arg::new("monke")
-//!                 .short("m")
+//!                 .short('m')
 //!                 .help("This is a test option")
 //!                 .option("oo"),
 //!         )
@@ -55,7 +55,7 @@ impl ArgType {
 #[derive(Clone)]
 pub struct Arg {
     name: String,
-    short: String,
+    short: char,
     help: String,
     typ: ArgType,
 }
@@ -65,7 +65,7 @@ impl Arg {
         let name = String::from(name);
         Self {
             name,
-            short: String::new(),
+            short: ' ',
             help: String::new(),
             typ: ArgType::Unknown,
         }
@@ -86,8 +86,8 @@ impl Arg {
         self
     }
 
-    pub fn short(&mut self, short: &str) -> &mut Self {
-        self.short = String::from(short);
+    pub fn short(&mut self, short: char) -> &mut Self {
+        self.short = short;
         self
     }
 }
@@ -123,7 +123,6 @@ impl ArgParser {
                 else if arg == "version" {println!("{} {}", self.name, self.version);process::exit(0);}
                 for flag in self.flags.iter_mut() {
                     if flag.name == arg {
-                        // In theory this will always be a Flag because of the args() method
                         if let ArgType::Flag(boolean) = flag.typ {
                             flag.flag(!boolean);
                         }
@@ -142,24 +141,25 @@ impl ArgParser {
             } else if let Some(arg) = arg.strip_prefix('-') {
                 if arg == "h" {self.print_help();process::exit(1);}
                 else if arg == "v" {println!("{} {}", self.name, self.version);process::exit(0);}
-                for flag in self.flags.iter_mut() {
-                    if flag.short == arg {
-                        // In theory this will always be a Flag because of the args() method
-                        if let ArgType::Flag(boolean) = flag.typ {
-                            flag.flag(!boolean);
-                        }
-                    }
-                }
-                for option in self.options.iter_mut() {
-                    if option.short == arg {
-                        let next = args.get(idx + 1);
-                        if let Some(next) = next {
-                            if !next.starts_with('-') {
-                                option.option(&next);
+                arg.chars().into_iter().for_each(|ch| {
+                    for flag in self.flags.iter_mut() {
+                        if flag.short == ch {
+                            if let ArgType::Flag(boolean) = flag.typ {
+                                flag.flag(!boolean);
                             }
                         }
                     }
-                }
+                    for option in self.options.iter_mut() {
+                        if option.short == ch {
+                            let next = args.get(idx + 1);
+                            if let Some(next) = next {
+                                if !next.starts_with('-') {
+                                    option.option(&next);
+                                }
+                            }
+                        }
+                    }
+                });
             }
         }
         self
@@ -203,11 +203,11 @@ impl ArgParser {
         };
         s.args(vec!(
             Arg::new("help")
-                .short("h")
+                .short('h')
                 .help("Prints the help dialog")
                 .flag(false),
             Arg::new("version")
-                .short("v")
+                .short('v')
                 .help("Prints the version")
                 .flag(false),
         ));
