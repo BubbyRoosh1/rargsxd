@@ -21,7 +21,7 @@
 //!                 .help("This is a test option.")
 //!                 .option("option"),
 //!             Arg::new("testword")
-//!                 .help("This is a test option.")
+//!                 .help("This is a test word.")
 //!                 .word(WordType::Boolean(false)),
 //!         )
 //!     ).parse_vec(args); // .parse() uses std::env::args() so the args vec won't need to be passed.
@@ -33,22 +33,28 @@
 
 // Copyright (C) 2021 BubbyRoosh
 use std::{env, process};
+use std::collections::HashMap;
 
 #[derive(Clone, PartialEq)]
 pub enum WordType {
+    /// ArgType's flag but for words.
     Boolean(bool),
+    /// ArgType's option but for words.
     String_(String),
 }
 
 impl WordType {
+    /// Creates a new WordType with `b` boolean
     pub fn boolean(b: bool) -> Self {
         Self::Boolean(b)
     }
 
+    /// Creates a new WordType with `s` &str
     pub fn string(s: &str) -> Self {
         Self::String_(String::from(s))
     }
 
+    /// Gets the WordType if it's WordType::Boolean
     pub fn as_bool(&self) -> Option<bool> {
         if let Self::Boolean(b) = self {
             return Some(*b);
@@ -56,6 +62,7 @@ impl WordType {
         None
     }
 
+    /// Gets the WordType if it's WordType::String_
     pub fn as_string(&self) -> Option<String> {
         if let Self::String_(s) = self {
             return Some(s.clone());
@@ -64,38 +71,51 @@ impl WordType {
     }
 }
 
+/// Type of argument to check for.
 #[derive(Clone, PartialEq)]
 pub enum ArgType {
     /// Only used for initialization. Will panic if there's any unknown ArgTypes when initializing.
     Unknown,
+    /// Toggles if the name is found when parsing.
     Flag(bool),
+    /// Value is set to the next argument if the name is found when parsing.
     Option_(String),
+    /// ^^ those but without -/--
     Word(WordType),
 }
 
 impl ArgType {
+    /// Creates a new ArgType::Option_ with `opt` &str as a default.
     pub fn option(opt: &str) -> Self {
         Self::Option_(String::from(opt))
     }
 
+    /// Creates a new ArgType::Flag with `f` bool as a default.
     pub fn flag(f: bool) -> Self {
         Self::Flag(f)
     }
 
+    /// Creates a new ArgType::Word with `wt` WordType as a default.
     pub fn word(wt: WordType) -> Self {
         Self::Word(wt)
     }
 }
 
+/// An argument.
 #[derive(Clone)]
 pub struct Arg {
+    /// Long name (-- if not ArgType::Word) to check for when parsing.
     name: String,
+    /// Short name (- if not ArgType::Word) to check for when parsing.
     short: char,
+    /// What's printed when self.print_help() is called.
     help: String,
+    /// Type of argument to parse for.
     typ: ArgType,
 }
 
 impl Arg {
+    /// Creates a new argument with `namee` &str.
     pub fn new(namee: &str) -> Self {
         let name = String::from(namee);
         Self {
@@ -106,52 +126,67 @@ impl Arg {
         }
     }
 
+    /// Makes the argument's type ArgType::Flag, giving it `val` bool.
     pub fn flag(&mut self, val: bool) -> &mut Self {
         self.typ = ArgType::flag(val);
         self
     }
 
+    /// Makes the argument's type ArgType::Option_, giving it `val` &str.
     pub fn option(&mut self, val: &str) -> &mut Self {
         self.typ = ArgType::option(val);
         self
     }
 
+    /// Makes the argument's type ArgType::Word, giving it `wt` WordType.
     pub fn word(&mut self, wt: WordType) -> &mut Self {
         self.typ = ArgType::word(wt);
         self
     }
 
+    /// Sets the output when the help menu is printed.
     pub fn help(&mut self, help: &str) -> &mut Self {
         self.help = String::from(help);
         self
     }
 
+    /// Sets the argument's short name with `short` char.
     pub fn short(&mut self, short: char) -> &mut Self {
         self.short = short;
         self
     }
 }
 
+/// Main parser struct.
 pub struct ArgParser {
+    /// Name of the program.
     name: String,
+    /// Name of the author.
     author: String,
+    /// Version of the program.
     version: String,
+    /// Copyright (if any)
     copyright: String,
+    /// Description/info on the program.
     info: String,
+    /// Usage (defaults to "{} [flags] [options]", name)
     usage: String,
-    flags: Vec<Arg>,
-    options: Vec<Arg>,
-    words: Vec<Arg>,
+    flags: HashMap<String, Arg>,
+    options: HashMap<String, Arg>,
+    words: HashMap<String, Arg>,
+    /// Prints help and exits if no args are passed when parsing.
     require_args: bool,
 }
 
 impl ArgParser {
+    /// Parses std::env::args().
     pub fn parse(&mut self) -> &mut Self {
         let args: Vec<_> = env::args().collect();
         self.parse_vec(args);
         self
     }
 
+    /// Parses a given Vec<String>.
     pub fn parse_vec(&mut self, args: Vec<String>) -> &mut Self {
         if args.len() == 1 && self.require_args {
             self.print_help();
@@ -159,65 +194,59 @@ impl ArgParser {
         }
 
         for (idx, arg) in args.iter().enumerate() {
-            for word in self.words.iter_mut() {
-                if word.name == *arg {
-                    if let ArgType::Word(w) = word.clone().typ {
-                        match w {
-                            WordType::Boolean(boolean) => {word.word(WordType::Boolean(!boolean));},
-                            WordType::String_(_) => {
-                                let next = args.get(idx + 1);
-                                if let Some(next) = next {
-                                    if !next.starts_with('-') {
-                                        word.word(WordType::String_(next.clone()));
-                                    }
+            if let Some(arg) = self.words.get_mut(arg) {
+                if let ArgType::Word(w) = arg.clone().typ {
+                    match w {
+                        WordType::Boolean(boolean) => {arg.word(WordType::Boolean(!boolean));},
+                        WordType::String_(_) => {
+                            let next = args.get(idx + 1);
+                            if let Some(next) = next {
+                                if !next.starts_with('-') {
+                                    arg.word(WordType::String_(next.clone()));
                                 }
-                            },
-                        }
+                            }
+                        },
                     }
                 }
+                continue;
             }
+
             if let Some(arg) = arg.strip_prefix("--") {
                 if arg == "help" {self.print_help();process::exit(0);}
                 else if arg == "version" {println!("{} {}", self.name, self.version);process::exit(0);}
 
-                for flag in self.flags.iter_mut() {
-                    if flag.name == arg {
-                        if let ArgType::Flag(boolean) = flag.typ {
-                            flag.flag(!boolean);
-                        }
+                if let Some(arg) = self.flags.get_mut(arg) {
+                    if let ArgType::Flag(boolean) = arg.typ {
+                        arg.flag(!boolean);
                     }
-                }
-                for option in self.options.iter_mut() {
-                    if option.name == arg {
-                        let next = args.get(idx + 1);
-                        if let Some(next) = next {
-                            if !next.starts_with('-') {
-                                option.option(&next);
-                            }
+                } else if let Some(arg) = self.options.get_mut(arg) {
+                    if let Some(next) = args.get(idx + 1) {
+                        if !next.starts_with('-') {
+                            arg.option(&next);
                         }
                     }
                 }
             } else if let Some(arg) = arg.strip_prefix('-') {
-
                 arg.chars().into_iter().for_each(|ch| {
                     if ch == 'h' {self.print_help();process::exit(1);}
                     else if ch == 'v' {println!("{} {}", self.name, self.version);process::exit(0);}
 
-                    for flag in self.flags.iter_mut() {
+                    for flag in self.flags.values_mut() {
                         if flag.short == ch {
                             if let ArgType::Flag(boolean) = flag.typ {
                                 flag.flag(!boolean);
                             }
+                            break;
                         }
                     }
-                    for option in self.options.iter_mut() {
+                    for option in self.options.values_mut() {
                         if option.short == ch {
-                            let next = args.get(idx + 1);
-                            if let Some(next) = next {
+                            if let Some(next) = args.get(idx + 1) {
                                 if !next.starts_with('-') {
                                     option.option(&next);
                                 }
                             }
+                            break;
                         }
                     }
                 });
@@ -226,42 +255,37 @@ impl ArgParser {
         self
     }
 
+    /// Gets an option argument's output by name.
     pub fn get_option(&self, name: &str) -> Option<String> {
-        for option in self.options.clone() {
-            if option.name == name {
-                if let ArgType::Option_(string) = option.typ {
-                    return Some(string);
-                }
-                break;
+        if let Some(arg) = self.options.get(name) {
+            if let ArgType::Option_(string) = arg.clone().typ {
+                return Some(string);
             }
         }
         None
     }
 
+    /// Gets a flag argument's output by name.
     pub fn get_flag(&self, name: &str) -> Option<bool> {
-        for flag in self.flags.clone() {
-            if flag.name == name {
-                if let ArgType::Flag(boolean) = flag.typ {
-                    return Some(boolean);
-                }
-                break;
+        if let Some(arg) = self.flags.get(name) {
+            if let ArgType::Flag(boolean) = arg.typ {
+                return Some(boolean);
             }
         }
         None
     }
 
+    /// Gets a word argument's output by name.
     pub fn get_word(&self, name: &str) -> Option<WordType> {
-        for word in self.words.clone() {
-            if word.name == name {
-                if let ArgType::Word(res) = word.typ {
-                    return Some(res);
-                }
-                break;
+        if let Some(arg) = self.words.get(name) {
+            if let ArgType::Word(wt) = arg.clone().typ {
+                return Some(wt);
             }
         }
         None
     }
 
+    /// Creates a new ArgParser with `name` &str.
     pub fn new(name: &str) -> Self {
         let mut s = Self {
             name: String::from(name),
@@ -270,9 +294,9 @@ impl ArgParser {
             copyright: String::new(),
             info: String::new(),
             usage: format!("{} [flags] [options]", name),
-            flags: Vec::new(),
-            options: Vec::new(),
-            words: Vec::new(),
+            flags: HashMap::new(),
+            options: HashMap::new(),
+            words: HashMap::new(),
             require_args: false,
         };
 
@@ -289,68 +313,77 @@ impl ArgParser {
         s
     }
 
+    /// Prints the help dialog.
     pub fn print_help(&self) {
         println!("{} {}\n{}\n{}\n{}", self.name, self.version, self.author, self.info, self.copyright);
         println!("\nUsage:\n\t{}", self.usage);
 
         if !self.flags.is_empty() {
             println!("\nFlags:");
-            self.flags.iter().for_each(|flag| {
+            self.flags.values().for_each(|flag| {
                 println!("\t-{}, --{}\t{}", flag.short, flag.name, flag.help);
             });
         }
 
         if !self.options.is_empty() {
             println!("\nOptions:");
-            self.options.iter().for_each(|opt| {
+            self.options.values().for_each(|opt| {
                 println!("\t-{}, --{}\t{}", opt.short, opt.name, opt.help);
             });
         }
     }
 
+    /// Sets the name of the program.
     pub fn name(&mut self, name: &str) -> &mut Self {
         self.name = String::from(name);
         self
     }
 
+    /// Sets the name of the author of the program.
     pub fn author(&mut self, author: &str) -> &mut Self {
         self.author = String::from(author);
         self
     }
 
+    /// Sets the version of the program.
     pub fn version(&mut self, version: &str) -> &mut Self {
         self.version = String::from(version);
         self
     }
 
+    /// Sets the copyright (if any) of the program.
     pub fn copyright(&mut self, copyright: &str) -> &mut Self {
         self.copyright = String::from(copyright);
         self
     }
 
+    /// Sets the info of the program.
     pub fn info(&mut self, info: &str) -> &mut Self {
         self.info = String::from(info);
         self
     }
 
+    /// Sets the usage of the program.
     pub fn usage(&mut self, usage: &str) -> &mut Self {
         self.usage = String::from(usage);
         self
     }
 
+    /// Gives the parser `args` Vec<&mut Arg>.
     pub fn args(&mut self, args: Vec<&mut Arg>) -> &mut Self {
         for arg in args {
             match arg.typ {
                 ArgType::Unknown => panic!("No Args can have type Unknown!"),
-                ArgType::Flag(_) => self.flags.push(arg.clone()),
-                ArgType::Option_(_) => self.options.push(arg.clone()),
-                ArgType::Word(_) => self.words.push(arg.clone()),
+                ArgType::Flag(_) => {self.flags.insert(arg.name.clone(), arg.clone());},
+                ArgType::Option_(_) => {self.options.insert(arg.name.clone(), arg.clone());},
+                ArgType::Word(_) => {self.words.insert(arg.name.clone(), arg.clone());},
             }
 
         }
         self
     }
 
+    /// Sets whether or not the program should exit when no arguments are passed.
     pub fn require_args(&mut self, require: bool) -> &mut Self {
         self.require_args = require;
         self
