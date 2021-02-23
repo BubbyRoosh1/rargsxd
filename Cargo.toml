@@ -1,6 +1,6 @@
 [package]
 name = "rargsxd"
-version = "0.1.2"
+version = "0.1.4"
 authors = ["BubbyRoosh"]
 edition = "2018"
 license-file = "LICENSE"
