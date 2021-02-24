@@ -33,7 +33,7 @@ impl ArgParser {
 
     /// Parses a given Vec<String>.
     pub fn parse_vec(&mut self, args: Vec<String>) -> &mut Self {
-        if args.len() == 1 && self.require_args {
+        if args.len() == 0 && self.require_args {
             self.print_help();
             process::exit(1);
         }
