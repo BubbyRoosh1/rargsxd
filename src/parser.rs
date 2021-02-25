@@ -18,6 +18,7 @@ pub struct ArgParser {
     /// Usage (defaults to "{} [flags] [options]", name)
     usage: String,
     args: HashMap<String, Arg>,
+    pub extra: Vec<String>,
     /// Prints help and exits if no args are passed when parsing.
     require_args: bool,
 }
@@ -38,6 +39,7 @@ impl ArgParser {
             process::exit(1);
         }
 
+        let mut skip_indexes = Vec::new();
         for (idx, arg) in args.iter().enumerate() {
             if let Some(arg) = self.args.get_mut(arg) {
                 if let ArgType::Word(w) = arg.clone().typ {
@@ -49,15 +51,14 @@ impl ArgParser {
                                 if !next.starts_with('-') {
                                     arg.word(WordType::String_(next.clone()));
                                     arg.set();
+                                    skip_indexes.push(idx + 1);
                                 }
                             }
                         },
                     }
                 }
                 continue;
-            }
-
-            if let Some(arg) = arg.strip_prefix("--") {
+            } else if let Some(arg) = arg.strip_prefix("--") {
                 if arg == "help" {self.help_exit()}
                 else if arg == "version" {self.version_exit()}
 
@@ -69,6 +70,7 @@ impl ArgParser {
                                 if !next.starts_with('-') {
                                     arg.option(&next);
                                     arg.set();
+                                    skip_indexes.push(idx + 1);
                                 }
                             }
                         },
@@ -92,6 +94,7 @@ impl ArgParser {
                                         if !next.starts_with('-') {
                                             arg.option(&next);
                                             arg.set();
+                                            skip_indexes.push(idx + 1);
                                         } else {
                                             println!("{}", arg.name);
                                             // Couldn't do this here because multiple mutable calls
@@ -109,6 +112,10 @@ impl ArgParser {
                         }
                     }
                 });
+            } else {
+                if !skip_indexes.contains(&idx) {
+                    self.extra.push(String::from(arg));
+                }
             }
         }
 
@@ -162,6 +169,7 @@ impl ArgParser {
             info: String::new(),
             usage: format!("{} [flags] [options]", name),
             args: HashMap::new(),
+            extra: Vec::new(),
             require_args: false,
         };
 
@@ -185,19 +193,19 @@ impl ArgParser {
 
         let flags: Vec<&Arg> = self.args
             .iter()
-            .filter(|(_, arg)| if let ArgType::Flag(_) = arg.typ{true} else {false})
+            .filter(|(_, arg)| if let ArgType::Flag(_) = arg.typ {true} else {false})
             .map(|(_, arg)| arg)
             .collect();
 
         let options: Vec<&Arg> = self.args
             .iter()
-            .filter(|(_, arg)| if let ArgType::Option_(_) = arg.typ{true} else {false})
+            .filter(|(_, arg)| if let ArgType::Option_(_) = arg.typ {true} else {false})
             .map(|(_, arg)| arg)
             .collect();
 
         let words: Vec<&Arg> = self.args
             .iter()
-            .filter(|(_, arg)| if let ArgType::Word(_) = arg.typ{true} else {false})
+            .filter(|(_, arg)| if let ArgType::Word(_) = arg.typ {true} else {false})
             .map(|(_, arg)| arg)
             .collect();
 

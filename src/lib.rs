@@ -54,23 +54,18 @@ mod tests {
         parser.args(
                 vec!(
                     Arg::new("testflag")
-                        .short('t')
-                        .help("This is a test flag.")
                         .flag(false),
 
                     Arg::new("testoption")
                         .short('o')
-                        .help("This is a test option.")
                         .option("option"),
 
                     Arg::new("combinedtestflag")
                         .short('f')
-                        .help("This is another test flag.")
                         .flag(false),
 
                     Arg::new("combinedtestoption")
                         .short('a')
-                        .help("This is another test option.")
                         .option("monke"),
                 )
             ).parse_vec(args);
@@ -94,16 +89,33 @@ mod tests {
         parser.args(
                 vec!(
                     Arg::new("testword")
-                        .help("This is a test word argument.")
                         .word(WordType::Boolean(false)),
 
                     Arg::new("anothertestword")
-                        .help("This is a *another* test word argument.")
                         .word(WordType::string("")),
                 )
             ).parse_vec(args);
 
         assert!(parser.get_word("testword").unwrap().as_bool().unwrap());
         assert_eq!(parser.get_word("anothertestword").unwrap().as_string().unwrap(), "wordargument");
+    }
+
+    #[test]
+    fn extra() {
+        let args = vec!(
+            "--monke".to_string(),
+            "oo oo".to_string(),
+            "extra".to_string(),
+        );
+        let mut parser = ArgParser::new("program_lol");
+        parser.args(
+                vec!(
+                    Arg::new("monke")
+                        .option(""),
+                )
+            ).parse_vec(args);
+
+        assert_eq!(parser.get_option("monke").unwrap(), "oo oo");
+        assert!(parser.extra.contains(&String::from("extra")));
     }
 }
