@@ -1,7 +1,7 @@
 use super::argument::*;
 
 use std::{env, process};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Main parser struct.
 pub struct ArgParser {
@@ -17,7 +17,7 @@ pub struct ArgParser {
     info: String,
     /// Usage (defaults to "{} [flags] [options]", name)
     usage: String,
-    args: HashMap<String, Arg>,
+    args: BTreeMap<String, Arg>,
     pub extra: Vec<String>,
     /// Prints help and exits if no args are passed when parsing.
     require_args: bool,
@@ -168,7 +168,7 @@ impl ArgParser {
             copyright: String::new(),
             info: String::new(),
             usage: format!("{} [flags] [options]", name),
-            args: HashMap::new(),
+            args: BTreeMap::new(),
             extra: Vec::new(),
             require_args: false,
         };
